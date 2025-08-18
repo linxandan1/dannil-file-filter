@@ -3,6 +3,10 @@ package org.yeehy;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 public class Application {
     public static void main(String[] args) {
         ArgsConfig config = new ArgsConfig();
@@ -36,9 +40,27 @@ public class Application {
             System.out.println("Full stats: " + config.isFullStats());
             System.out.println("Input files: " + config.getInputFiles());
 
+            System.out.println("---------------------------------------------------");
+
+            for (String filename : config.getInputFiles()) {
+                Path path = Path.of(filename);
+                if (!Files.exists(path)) {
+                    System.err.println("Файл не найден: " + filename);
+                    continue;
+                }
+
+                System.out.println("=== Обработка файла: " + filename + " ===");
+                FileManager.processFile(path, line -> {
+                    TypeDetector.DataType type = TypeDetector.determineType(line);
+                    System.out.printf("[%s] %s%n", type, line);
+                });
+            }
+
         } catch (ParameterException e) {
             System.err.println("Ошибка аргументов: " + e.getMessage());
             jCommander.usage();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 }
