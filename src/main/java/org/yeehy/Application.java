@@ -42,25 +42,34 @@ public class Application {
 
             System.out.println("---------------------------------------------------");
 
-            for (String filename : config.getInputFiles()) {
-                Path path = Path.of(filename);
-                if (!Files.exists(path)) {
-                    System.err.println("Файл не найден: " + filename);
-                    continue;
-                }
+            Path outputPath = Path.of(config.getOutputDir());
 
-                System.out.println("=== Обработка файла: " + filename + " ===");
-                FileManager.processFile(path, line -> {
-                    TypeDetector.DataType type = TypeDetector.determineType(line);
-                    System.out.printf("[%s] %s%n", type, line);
-                });
+            try (OutputWriter writer = new OutputWriter(outputPath, config.getPrefix(), config.isAppend())) {
+                for (String filename : config.getInputFiles()) {
+                    Path path = Path.of(filename);
+                    if (!Files.exists(path)) {
+                        System.err.println("Файл не найден: " + filename);
+                        continue;
+                    }
+
+                    System.out.println("=== Обработка файла: " + filename + " ===");
+                    FileManager.processFile(path, line -> {
+                        TypeDetector.DataType type = TypeDetector.determineType(line);
+                        try {
+                            writer.write(type, line);
+                        } catch (IOException e) {
+                            System.err.println("Ошибка записи в файл: " + e.getMessage());
+                        }
+                    });
+                }
+            } catch (IOException e) {
+                System.err.println("Ошибка при работе с выходными файлами: " + e.getMessage());
             }
+
 
         } catch (ParameterException e) {
             System.err.println("Ошибка аргументов: " + e.getMessage());
             jCommander.usage();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 }
