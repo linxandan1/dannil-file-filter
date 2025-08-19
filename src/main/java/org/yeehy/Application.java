@@ -2,6 +2,8 @@ package org.yeehy;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
+import org.yeehy.statistic.NumericStats;
+import org.yeehy.statistic.StringStats;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -45,6 +47,10 @@ public class Application {
             Path outputPath = Path.of(config.getOutputDir());
 
             try (OutputWriter writer = new OutputWriter(outputPath, config.getPrefix(), config.isAppend())) {
+                NumericStats intStats = new NumericStats();
+                NumericStats floatStats = new NumericStats();
+                StringStats stringStats = new StringStats();
+
                 for (String filename : config.getInputFiles()) {
                     Path path = Path.of(filename);
                     if (!Files.exists(path)) {
@@ -57,16 +63,41 @@ public class Application {
                         TypeDetector.DataType type = TypeDetector.determineType(line);
                         try {
                             writer.write(type, line);
-                        } catch (IOException e) {
-                            System.err.println("Ошибка записи в файл: " + e.getMessage());
+
+                            switch (type) {
+                                case INTEGER -> intStats.addNumber(Long.parseLong(line));
+                                case FLOAT   -> floatStats.addNumber(Double.parseDouble(line));
+                                case STRING  -> stringStats.addString(line);
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Ошибка при обработке строки" + e.getMessage());
                         }
                     });
                 }
+
+                System.out.println("---------------------------------------------------");
+                if (config.isShortStats()) {
+                    System.out.println("Integers: " + intStats.getCount());
+                    System.out.println("Floats:   " + floatStats.getCount());
+                    System.out.println("Strings:  " + stringStats.getCount());
+                } else if (config.isFullStats()) {
+                    System.out.println("Integers: " + intStats.getCount() +
+                            " | min=" + intStats.getMin() +
+                            " | max=" + intStats.getMax() +
+                            " | sum=" + intStats.getSum() +
+                            " | avg=" + intStats.getAverage());
+                    System.out.println("Floats:   " + floatStats.getCount() +
+                            " | min=" + floatStats.getMin() +
+                            " | max=" + floatStats.getMax() +
+                            " | sum=" + floatStats.getSum() +
+                            " | avg=" + floatStats.getAverage());
+                    System.out.println("Strings:  " + stringStats.getCount() +
+                            " | minLen=" + stringStats.getMinLength() +
+                            " | maxLen=" + stringStats.getMaxLength());
+                }
             } catch (IOException e) {
-                System.err.println("Ошибка при работе с выходными файлами: " + e.getMessage());
+                throw new RuntimeException(e);
             }
-
-
         } catch (ParameterException e) {
             System.err.println("Ошибка аргументов: " + e.getMessage());
             jCommander.usage();
