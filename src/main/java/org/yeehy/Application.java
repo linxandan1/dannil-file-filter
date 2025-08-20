@@ -45,6 +45,14 @@ public class Application {
             System.out.println("---------------------------------------------------");
 
             Path outputPath = Path.of(config.getOutputDir());
+            if (!Files.exists(outputPath)) {
+                try {
+                    Files.createDirectories(outputPath);
+                } catch (IOException e) {
+                    System.err.println("Ошибка: не удалось создать директорию вывода: " + e.getMessage());
+                    return;
+                }
+            }
 
             try (OutputWriter writer = new OutputWriter(outputPath, config.getPrefix(), config.isAppend())) {
                 NumericStats intStats = new NumericStats();
@@ -70,31 +78,13 @@ public class Application {
                                 case STRING  -> stringStats.addString(line);
                             }
                         } catch (Exception e) {
-                            System.err.println("Ошибка при обработке строки" + e.getMessage());
+                            System.err.println("Ошибка при обработке строки: " + e.getMessage());
                         }
                     });
                 }
 
-                System.out.println("---------------------------------------------------");
-                if (config.isShortStats()) {
-                    System.out.println("Integers: " + intStats.getCount());
-                    System.out.println("Floats:   " + floatStats.getCount());
-                    System.out.println("Strings:  " + stringStats.getCount());
-                } else if (config.isFullStats()) {
-                    System.out.println("Integers: " + intStats.getCount() +
-                            " | min=" + intStats.getMin() +
-                            " | max=" + intStats.getMax() +
-                            " | sum=" + intStats.getSum() +
-                            " | avg=" + intStats.getAverage());
-                    System.out.println("Floats:   " + floatStats.getCount() +
-                            " | min=" + floatStats.getMin() +
-                            " | max=" + floatStats.getMax() +
-                            " | sum=" + floatStats.getSum() +
-                            " | avg=" + floatStats.getAverage());
-                    System.out.println("Strings:  " + stringStats.getCount() +
-                            " | minLen=" + stringStats.getMinLength() +
-                            " | maxLen=" + stringStats.getMaxLength());
-                }
+                printStats(config, intStats, floatStats, stringStats);
+
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -103,4 +93,33 @@ public class Application {
             jCommander.usage();
         }
     }
+    private static void printStats(ArgsConfig config, NumericStats intStats, NumericStats floatStats, StringStats stringStats) {
+        System.out.println("================================");
+        if (config.isShortStats()) {
+            System.out.println("========= SHORT STATS =========");
+            System.out.printf("Integers : %d%n", intStats.getCount());
+            System.out.printf("Floats   : %d%n", floatStats.getCount());
+            System.out.printf("Strings  : %d%n", stringStats.getCount());
+        } else if (config.isFullStats()) {
+            System.out.println("========= FULL STATS =========");
+            System.out.printf("Integers : count=%d | min=%s | max=%s | sum=%.3f | avg=%.3f%n",
+                    intStats.getCount(),
+                    Double.isNaN(intStats.getMin()) ? "-" : intStats.getMin(),
+                    Double.isNaN(intStats.getMax()) ? "-" : intStats.getMax(),
+                    intStats.getSum(),
+                    Double.isNaN(intStats.getAverage()) ? 0.0 : intStats.getAverage());
+            System.out.printf("Floats   : count=%d | min=%s | max=%s | sum=%.3f | avg=%.3f%n",
+                    floatStats.getCount(),
+                    Double.isNaN(floatStats.getMin()) ? "-" : floatStats.getMin(),
+                    Double.isNaN(floatStats.getMax()) ? "-" : floatStats.getMax(),
+                    floatStats.getSum(),
+                    Double.isNaN(floatStats.getAverage()) ? 0.0 : floatStats.getAverage());
+            System.out.printf("Strings  : count=%d | minLen=%d | maxLen=%d%n",
+                    stringStats.getCount(),
+                    stringStats.getMinLength(),
+                    stringStats.getMaxLength());
+        }
+        System.out.println("================================");
+    }
+
 }
